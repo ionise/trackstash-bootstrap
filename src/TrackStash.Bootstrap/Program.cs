@@ -25,6 +25,7 @@ static async Task<int> RunAsync(string[] args)
 		return command switch
 		{
 			"init-db"    => await RunInitDbAsync(bootstrap, config, jsonMode).ConfigureAwait(false),
+			"migrate" => await RunMigrateAsync(bootstrap, config, jsonMode).ConfigureAwait(false),
 			"seed-label" => await RunSeedLabelAsync(bootstrap, config, options, jsonMode).ConfigureAwait(false),
 			"seed-artist" => await RunSeedArtistAsync(bootstrap, config, options, jsonMode).ConfigureAwait(false),
 			"seed-release" => await RunSeedReleaseAsync(bootstrap, config, options, jsonMode).ConfigureAwait(false),
@@ -114,6 +115,36 @@ static async Task<int> RunInitDbAsync(BootstrapCommands bootstrap, BootstrapConf
 			("currentVersion", result.CurrentVersion),
 			("appliedMigrations", result.AppliedMigrationsCount),
 			("status", "ready"),
+		]);
+	}
+
+	return 0;
+}
+
+static async Task<int> RunMigrateAsync(BootstrapCommands bootstrap, BootstrapConfig config, bool jsonMode)
+{
+	var dbPath = RequireDbPath(config);
+	var result = await bootstrap.MigrateAsync(dbPath).ConfigureAwait(false);
+
+	if (jsonMode)
+	{
+		CommandOutput.WriteJson("migrate", ok: true, exitCode: 0, data: new
+		{
+			databasePath = dbPath,
+			currentVersion = result.CurrentVersion,
+			appliedMigrations = result.AppliedMigrations.Count,
+			wasSuccessful = result.WasSuccessful,
+			message = result.Message,
+		});
+	}
+	else
+	{
+		CommandOutput.WriteText([
+			("database", dbPath),
+			("currentVersion", result.CurrentVersion),
+			("appliedMigrations", result.AppliedMigrations.Count),
+			("wasSuccessful", result.WasSuccessful),
+			("message", result.Message),
 		]);
 	}
 
@@ -411,6 +442,7 @@ static void PrintUsage()
 	Console.WriteLine("Usage:");
 	Console.WriteLine("  trackstash-bootstrap status     --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap init-db    --db-path <path> [--output json]");
+	Console.WriteLine("  trackstash-bootstrap migrate    --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap seed-label --db-path <path> --name <name> [--id <id>] [--source <source> --external-id <id>] [--output json]");
 	Console.WriteLine("  trackstash-bootstrap seed-artist --db-path <path> --name <name> [--id <id>] [--sort-name <sort>] [--source <source> --external-id <id>] [--output json]");
 	Console.WriteLine("  trackstash-bootstrap seed-release --db-path <path> --title <title> [--id <id>] [--label-id <id>] [--artist-id <id>] [--source <source> --external-id <id>] [--output json]");

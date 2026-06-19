@@ -108,6 +108,14 @@ public sealed class BootstrapCommands
             AppliedMigrationsCount: migrationResult.AppliedMigrations.Count);
     }
 
+    public async Task<MigrationResult> MigrateAsync(string databasePath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+
+        var provider = new SqliteStorageProvider(databasePath);
+        return await provider.Migrations.ApplyPendingMigrationsAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<SeedLabelResult> SeedLabelAsync(SeedLabelRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);

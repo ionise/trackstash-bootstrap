@@ -13,7 +13,7 @@ This module is intentionally **not** the owner of domain models, repository cont
 
 Status: MVP implementation complete.
 
-Commands available: `status`, `init-db`, `seed-label`, `seed-artist`, `seed-release`, `seed-recording`.  
+Commands available: `status`, `init-db`, `migrate`, `seed-label`, `seed-artist`, `seed-release`, `seed-recording`.  
 Config file support (YAML), JSON output mode, and environment variable overrides are implemented.
 
 ## Why This Module Exists
@@ -95,9 +95,15 @@ dotnet run --project src/TrackStash.Bootstrap -- init-db --config ./trackstash-b
 
 This creates the database file if it does not exist and applies all pending schema migrations.
 
+If you only want to apply pending migrations to an existing database, use:
+
+```bash
+dotnet run --project src/TrackStash.Bootstrap -- migrate --config ./trackstash-bootstrap.yml
+```
+
 Example output:
 
-```
+```text
 provider: sqlite
 database: /path/to/your/trackstash.db
 currentVersion: 1
@@ -173,14 +179,15 @@ dotnet run --project src/TrackStash.Bootstrap -- status --config ./trackstash-bo
 
 ## Command Reference
 
-```
+```text
 trackstash-bootstrap status     --db-path <path> | --config <path>
 trackstash-bootstrap init-db    --db-path <path> | --config <path>
+trackstash-bootstrap migrate    --db-path <path> | --config <path>
 trackstash-bootstrap seed-label --db-path <path> | --config <path> --name <name> [--id <id>] [--source <provider> --external-id <id>]
 trackstash-bootstrap seed-artist --db-path <path> | --config <path> --name <name> [--id <id>] [--sort-name <sort>] [--source <provider> --external-id <id>]
 trackstash-bootstrap seed-release --db-path <path> | --config <path> --title <title> [--id <id>] [--label-id <id>] [--artist-id <id>] [--source <provider> --external-id <id>]
 trackstash-bootstrap seed-recording --db-path <path> | --config <path> --title <title> [--id <id>] [--mix-name <mix>] [--isrc <isrc>] [--release-id <id>] [--disc-number <n>] [--track-number <n>] [--artist-id <id>] [--artist-role <role>] [--related-recording-id <id>] [--relationship-type <type>] [--relationship-source <source>] [--relationship-confidence <value>] [--relationship-notes <text>] [--source <provider> --external-id <id>]
-```
+```text
 
 Global options (any command):
 
@@ -194,14 +201,13 @@ Implemented:
 
 - `trackstash-bootstrap status`
 - `trackstash-bootstrap init-db`
-- `trackstash-bootstrap seed-label`
-
-Planned next:
-
 - `trackstash-bootstrap migrate`
+- `trackstash-bootstrap seed-label`
 - `trackstash-bootstrap seed-artist`
 - `trackstash-bootstrap seed-release`
 - `trackstash-bootstrap seed-recording`
+
+Planned next:
 
 Potential future:
 

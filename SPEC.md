@@ -29,6 +29,7 @@ In scope for MVP:
 - command parsing and validation
 - provider/bootstrap configuration
 - migration orchestration via `IMigrationRunner`
+- standalone `migrate` command
 - label seed path via `ILabelRepository`
 - status command for readiness and migration state
 - stable exit codes
@@ -92,6 +93,28 @@ Behavior:
 - construct provider
 - if `migrate=auto`, apply all pending migrations
 - return resulting migration/version state
+
+Idempotency:
+
+- repeated runs should be safe
+- if already up to date, no schema changes are applied
+
+#### `migrate`
+
+Purpose:
+
+- apply pending migrations to an existing database
+
+Options:
+
+- none beyond global options for MVP
+
+Behavior:
+
+- resolve configuration
+- construct provider
+- apply all pending migrations
+- return current migration/version state
 
 Idempotency:
 
@@ -380,10 +403,7 @@ Bootstrap-specific behavior:
 
 - seed and import commands should call shared core normalization utilities before upsert
 - bootstrap should not define its own normalization algorithm
-- bootstrap should use duplicate-avoidance lookup order before creating canonical rows:
-    - external reference lookup first
-    - normalized-field lookup second
-    - create new canonical identity only when no deterministic match exists
+- bootstrap should use duplicate-avoidance lookup order before creating canonical rows: external reference lookup first, normalized-field lookup second, and create a new canonical identity only when no deterministic match exists
 - when normalized lookup returns ambiguous candidates, bootstrap should fail with a review-required result rather than auto-merging
 
 ## 11. Testing Matrix
@@ -415,7 +435,7 @@ Bootstrap-specific behavior:
 - configuration file format (`json` vs `yaml`)
 - normalization utility location and algorithm
 - whether `seed-label` should accept payload files in MVP
-- whether `migrate` becomes a standalone command in MVP or post-MVP
+- `migrate` is a standalone command in MVP
 
 ## 13. Implementation Checklist
 
