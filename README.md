@@ -209,8 +209,6 @@ Implemented:
 
 Planned next:
 
-Potential future:
-
 - `trackstash-bootstrap import-csv`
 - `trackstash-bootstrap doctor`
 - `trackstash-bootstrap repair-indexes`
@@ -283,4 +281,6 @@ Planned additions:
 2. ✅ Implement `init-db`, `status`, and `seed-label`.
 3. ✅ YAML config file support and env var resolution.
 4. ✅ JSON output mode.
-5. Add `seed-artist` (Phase 2 seeding).
+5. ✅ Add `seed-artist` (Phase 2 seeding).
+6. ✅ Add `seed-release` and `seed-recording`.
+7. Add `import-csv` for bulk ingestion.

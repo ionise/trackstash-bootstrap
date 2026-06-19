@@ -239,7 +239,16 @@ sequenceDiagram
     CLI-->>CLI: Emit output + exit code
 ```
 
-### 7.3 `seed-label` Sequence
+### 7.3 Extending Future Commands
+
+Future bootstrap commands should continue to:
+
+- resolve configuration through the same CLI/config/environment pipeline
+- call shared `trackstash-core` contracts directly rather than introducing a transport layer
+- preserve the same JSON envelope and stable exit-code mapping
+- add integration coverage against a temporary SQLite database before promotion
+
+### 7.4 `seed-label` Sequence
 
 ```mermaid
 sequenceDiagram
