@@ -10,6 +10,23 @@ public sealed record StatusResult(
     int CurrentVersion,
     StorageCapabilities Capabilities);
 
+public sealed record SeedArtistRequest(
+    string DatabasePath,
+    string Name,
+    string? ArtistId = null,
+    string? SortName = null,
+    string? Source = null,
+    string? ExternalId = null);
+
+public sealed record SeedArtistResult(string ArtistId, string NormalizedName, SeedArtistAction Action);
+
+public enum SeedArtistAction
+{
+    Created = 0,
+    ReusedByExternalReference = 1,
+    ReusedByNormalizedName = 2,
+}
+
 public sealed class BootstrapCommands
 {
     public async Task<StatusResult> StatusAsync(string databasePath, CancellationToken cancellationToken = default)
@@ -79,7 +96,7 @@ public sealed class BootstrapCommands
         var now = DateTimeOffset.UtcNow;
 
         var aliases = BuildAliases(existing, request.Name, normalizedName);
-        var refs = BuildExternalReferences(request, now);
+        var refs = BuildExternalReferences(request.Source, request.ExternalId, now);
 
         var label = new Label
         {
@@ -100,6 +117,65 @@ public sealed class BootstrapCommands
         return new SeedLabelResult(labelId, normalizedName, action);
     }
 
+    public async Task<SeedArtistResult> SeedArtistAsync(SeedArtistRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.DatabasePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Name);
+
+        var normalizedName = EntityNameNormalizer.NormalizeStrict(request.Name);
+        if (string.IsNullOrWhiteSpace(normalizedName))
+            throw new ArgumentException("Artist name cannot normalize to an empty key.");
+
+        var provider = new SqliteStorageProvider(request.DatabasePath);
+        await using var uow = await provider.BeginUnitOfWorkAsync(cancellationToken).ConfigureAwait(false);
+
+        Artist? existingByExternal = null;
+        if (!string.IsNullOrWhiteSpace(request.Source) && !string.IsNullOrWhiteSpace(request.ExternalId))
+        {
+            existingByExternal = await uow.Artists
+                .GetByExternalRefAsync(request.Source!, request.ExternalId!, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var existingByNormalized = await uow.Artists
+            .GetByNormalizedNameAsync(normalizedName, cancellationToken)
+            .ConfigureAwait(false);
+
+        var existing = existingByExternal ?? existingByNormalized;
+
+        var action = existingByExternal is not null
+            ? SeedArtistAction.ReusedByExternalReference
+            : existingByNormalized is not null
+                ? SeedArtistAction.ReusedByNormalizedName
+                : SeedArtistAction.Created;
+
+        var artistId = ResolveArtistId(request, existing);
+        var now = DateTimeOffset.UtcNow;
+
+        var aliases = BuildAliases(existing, request.Name, normalizedName);
+        var refs = BuildExternalReferences(request.Source, request.ExternalId, now);
+
+        var artist = new Artist
+        {
+            Id = artistId,
+            Name = existing?.Name ?? request.Name,
+            NormalizedName = existing?.NormalizedName ?? normalizedName,
+            SortName = existing?.SortName ?? request.SortName,
+            SourcePayloadJson = existing?.SourcePayloadJson,
+            CreatedUtc = existing?.CreatedUtc ?? now,
+            UpdatedUtc = now,
+            Aliases = aliases,
+            ExternalReferences = refs,
+            Relationships = existing?.Relationships ?? Array.Empty<EntityRelationship>(),
+        };
+
+        await uow.Artists.UpsertAsync(artist, cancellationToken).ConfigureAwait(false);
+        await uow.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        return new SeedArtistResult(artistId, normalizedName, action);
+    }
+
     private static string ResolveLabelId(SeedLabelRequest request, Label? existing)
     {
         if (existing is not null)
@@ -111,7 +187,18 @@ public sealed class BootstrapCommands
         return Guid.NewGuid().ToString("D").ToLowerInvariant();
     }
 
-    private static IReadOnlyList<EntityAlias> BuildAliases(Label? existing, string inputName, string normalizedName)
+    private static string ResolveArtistId(SeedArtistRequest request, Artist? existing)
+    {
+        if (existing is not null)
+            return existing.Id;
+
+        if (!string.IsNullOrWhiteSpace(request.ArtistId))
+            return request.ArtistId!;
+
+        return Guid.NewGuid().ToString("D").ToLowerInvariant();
+    }
+
+    private static IReadOnlyList<EntityAlias> BuildAliases(CanonicalEntity? existing, string inputName, string normalizedName)
     {
         var aliases = existing?.Aliases?.ToList() ?? [];
         var hasAlias = aliases.Any(alias => string.Equals(alias.Value, inputName, StringComparison.OrdinalIgnoreCase));
@@ -129,17 +216,17 @@ public sealed class BootstrapCommands
         return aliases;
     }
 
-    private static IReadOnlyList<EntityReference> BuildExternalReferences(SeedLabelRequest request, DateTimeOffset now)
+    private static IReadOnlyList<EntityReference> BuildExternalReferences(string? source, string? externalId, DateTimeOffset now)
     {
-        if (string.IsNullOrWhiteSpace(request.Source) || string.IsNullOrWhiteSpace(request.ExternalId))
+        if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(externalId))
             return Array.Empty<EntityReference>();
 
         return
         [
             new EntityReference
             {
-                Source = request.Source!,
-                ExternalId = request.ExternalId!,
+                Source = source!,
+                ExternalId = externalId!,
                 IsPrimary = true,
                 LastSeenUtc = now,
             },

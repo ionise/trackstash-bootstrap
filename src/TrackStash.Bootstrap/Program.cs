@@ -25,6 +25,7 @@ static async Task<int> RunAsync(string[] args)
 		{
 			"init-db"    => await RunInitDbAsync(bootstrap, config, jsonMode).ConfigureAwait(false),
 			"seed-label" => await RunSeedLabelAsync(bootstrap, config, options, jsonMode).ConfigureAwait(false),
+			"seed-artist" => await RunSeedArtistAsync(bootstrap, config, options, jsonMode).ConfigureAwait(false),
 			"status"     => await RunStatusAsync(bootstrap, config, jsonMode).ConfigureAwait(false),
 			_            => UnknownCommand(command),
 		};
@@ -161,6 +162,53 @@ static async Task<int> RunSeedLabelAsync(
 	return 0;
 }
 
+static async Task<int> RunSeedArtistAsync(
+	BootstrapCommands bootstrap,
+	BootstrapConfig config,
+	IReadOnlyDictionary<string, string?> options,
+	bool jsonMode)
+{
+	var dbPath = RequireDbPath(config);
+	var name = GetRequiredOption(options, "name");
+	var artistId = GetOption(options, "id");
+	var sortName = GetOption(options, "sort-name");
+	var source = GetOption(options, "source");
+	var externalId = GetOption(options, "external-id");
+
+	if (!string.IsNullOrWhiteSpace(externalId) && string.IsNullOrWhiteSpace(source))
+		throw new ArgumentException("--source is required when --external-id is provided.");
+
+	var request = new SeedArtistRequest(
+		DatabasePath: dbPath,
+		Name: name,
+		ArtistId: artistId,
+		SortName: sortName,
+		Source: source,
+		ExternalId: externalId);
+
+	var result = await bootstrap.SeedArtistAsync(request).ConfigureAwait(false);
+
+	if (jsonMode)
+	{
+		CommandOutput.WriteJson("seed-artist", ok: true, exitCode: 0, data: new
+		{
+			artistId = result.ArtistId,
+			action = result.Action.ToString(),
+			normalizedName = result.NormalizedName,
+		});
+	}
+	else
+	{
+		CommandOutput.WriteText([
+			("artistId", result.ArtistId),
+			("action", result.Action),
+			("normalizedName", result.NormalizedName),
+		]);
+	}
+
+	return 0;
+}
+
 static int UnknownCommand(string command)
 {
 	Console.Error.WriteLine($"Unknown command: {command}");
@@ -217,6 +265,7 @@ static void PrintUsage()
 	Console.WriteLine("  trackstash-bootstrap status     --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap init-db    --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap seed-label --db-path <path> --name <name> [--id <id>] [--source <source> --external-id <id>] [--output json]");
+	Console.WriteLine("  trackstash-bootstrap seed-artist --db-path <path> --name <name> [--id <id>] [--sort-name <sort>] [--source <source> --external-id <id>] [--output json]");
 	Console.WriteLine();
 	Console.WriteLine("Options resolved from (highest to lowest priority):");
 	Console.WriteLine("  CLI flags > env vars > config file (--config <path>) > defaults");
