@@ -11,9 +11,10 @@ This module is intentionally **not** the owner of domain models, repository cont
 
 ## Current Status
 
-Status: design and planning stage.
+Status: MVP implementation complete.
 
-At the moment this folder contains module guidance and intended boundaries while command tooling is being defined.
+Commands available: `status`, `init-db`, `seed-label`.  
+Config file support (YAML), JSON output mode, and environment variable overrides are implemented.
 
 ## Why This Module Exists
 
@@ -67,19 +68,115 @@ Related module docs:
 - scan extraction or media fingerprinting logic
 - matching, tagging, or file organization business logic
 
-## Planned Command Surface (Placeholder)
+## Getting Started
 
-Final names and flags are still TBD. Current proposal:
+### Prerequisites
 
+- .NET 8 SDK
+
+### 1. Copy and edit the config file
+
+```bash
+cp trackstash-bootstrap.template.yml trackstash-bootstrap.yml
+```
+
+Open `trackstash-bootstrap.yml` and set the database path:
+
+```yaml
+sqlite:
+  dbPath: /path/to/your/trackstash.db
+```
+
+### 2. Initialize the database
+
+```bash
+dotnet run --project src/TrackStash.Bootstrap -- init-db --config ./trackstash-bootstrap.yml
+```
+
+This creates the database file if it does not exist and applies all pending schema migrations.
+
+Example output:
+
+```
+provider: sqlite
+database: /path/to/your/trackstash.db
+currentVersion: 1
+appliedMigrations: 1
+status: ready
+```
+
+### 3. Check status
+
+```bash
+dotnet run --project src/TrackStash.Bootstrap -- status --config ./trackstash-bootstrap.yml
+```
+
+### 4. Seed a label
+
+```bash
+dotnet run --project src/TrackStash.Bootstrap -- seed-label --config ./trackstash-bootstrap.yml --name "Virelith Records"
+```
+
+Repeat with name variations — the normalizer deduplicates them automatically:
+
+```bash
+dotnet run --project src/TrackStash.Bootstrap -- seed-label --config ./trackstash-bootstrap.yml --name "Virelith"
+# action: ReusedByNormalizedName
+```
+
+### Config file vs CLI flags
+
+All options can be passed as CLI flags instead of using a config file:
+
+```bash
+dotnet run --project src/TrackStash.Bootstrap -- init-db --db-path ./trackstash.db
+```
+
+Resolution order (highest wins):
+
+1. CLI flags
+2. Environment variables (`TRACKSTASH_SQLITE_DB_PATH`, `TRACKSTASH_PROVIDER`, etc.)
+3. Config file (`--config <path>` or `TRACKSTASH_CONFIG` env var)
+4. Defaults
+
+### JSON output mode
+
+Add `--output json` to any command for machine-readable output:
+
+```bash
+dotnet run --project src/TrackStash.Bootstrap -- status --config ./trackstash-bootstrap.yml --output json
+```
+
+## Command Reference
+
+```
+trackstash-bootstrap status     --db-path <path> | --config <path>
+trackstash-bootstrap init-db    --db-path <path> | --config <path>
+trackstash-bootstrap seed-label --db-path <path> | --config <path> --name <name> [--id <id>] [--source <provider> --external-id <id>]
+```
+
+Global options (any command):
+
+- `--config <path>` — path to YAML config file
+- `--output json` — JSON output mode
+- `--verbosity <quiet|normal|detailed|debug>`
+
+## Planned Command Surface
+
+Implemented:
+
+- `trackstash-bootstrap status`
 - `trackstash-bootstrap init-db`
-- `trackstash-bootstrap migrate`
 - `trackstash-bootstrap seed-label`
+
+Planned next:
+
+- `trackstash-bootstrap migrate`
 - `trackstash-bootstrap seed-artist`
 - `trackstash-bootstrap seed-release`
 - `trackstash-bootstrap seed-recording`
-- `trackstash-bootstrap status`
 
-Potential future commands:
+Potential future:
 
 - `trackstash-bootstrap import-csv`
 - `trackstash-bootstrap doctor`
@@ -114,28 +211,43 @@ Optional future integrations:
 - catalog ingestion modules for bulk reference imports
 - configuration/secrets modules for environment-driven setup
 
-## Configuration (Placeholder)
+## Configuration
 
-Configuration shape is still being finalized. Likely inputs:
+See [trackstash-bootstrap.template.yml](trackstash-bootstrap.template.yml) for a fully annotated config template.
 
-- database file path or connection string
-- storage provider selection
-- migration mode (`auto`, `manual`, `off`)
-- seed source paths (CSV/JSON)
-- logging verbosity
+Config keys:
 
-## Testing Strategy (Placeholder)
+- `provider` — storage backend (`sqlite`)
+- `sqlite.dbPath` — path to the SQLite database file
+- `migrations.mode` — `auto`, `manual`, or `off`
+- `output.format` — `text` or `json`
+- `logging.verbosity` — `quiet`, `normal`, `detailed`, or `debug`
 
-Planned testing split:
+Environment variable equivalents:
 
-- unit tests for command parsing and orchestration logic
-- integration tests for init/migrate/seed against temporary SQLite databases
-- smoke tests for expected status/exit code behavior
+- `TRACKSTASH_PROVIDER`
+- `TRACKSTASH_SQLITE_DB_PATH`
+- `TRACKSTASH_MIGRATIONS_MODE`
+- `TRACKSTASH_OUTPUT_FORMAT`
+- `TRACKSTASH_VERBOSITY`
+- `TRACKSTASH_CONFIG` — path to config file
+
+## Testing Strategy
+
+Current test coverage:
+
+- integration test: `seed-label` deduplicates punctuation variants against a temp SQLite database
+
+Planned additions:
+
+- unit tests for argument parsing and validation
+- integration tests for `status` and `init-db` idempotency
+- failure-path tests for missing provider, bad config, migration errors
 
 ## Near-Term Milestones
 
-1. Scaffold executable project for this module.
-2. Implement `init-db` and `status` as first commands.
-3. Add `seed-label` end-to-end path.
-4. Add integration tests using temp DB lifecycle.
-5. Document stable CLI contract once command names/flags are finalized.
+1. ✅ Scaffold executable project.
+2. ✅ Implement `init-db`, `status`, and `seed-label`.
+3. ✅ YAML config file support and env var resolution.
+4. ✅ JSON output mode.
+5. Add `seed-artist` (Phase 2 seeding).

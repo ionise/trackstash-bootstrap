@@ -1,0 +1,34 @@
+# trackstash-bootstrap configuration template
+# Copy this file and adjust for your environment.
+# Usage: trackstash-bootstrap <command> --config ./trackstash-bootstrap.yml
+
+# Storage provider selection.
+# Supported values: sqlite
+provider: sqlite
+
+# SQLite-specific settings.
+sqlite:
+  # Path to the SQLite database file.
+  # Can be absolute or relative to the working directory.
+  dbPath: ./trackstash.db
+
+# Migration behavior on init-db.
+migrations:
+  # auto  - apply all pending migrations automatically (default)
+  # manual - do not apply migrations; use the migrate command separately
+  # off   - skip migration checks entirely
+  mode: auto
+
+# Output format for command results.
+output:
+  # text - human-readable key/value output (default)
+  # json - structured JSON envelope for scripting and automation
+  format: text
+
+# Logging verbosity.
+logging:
+  # quiet    - errors only
+  # normal   - key command events (default)
+  # detailed - timing and result detail
+  # debug    - full diagnostic output including stack traces
+  verbosity: normal

@@ -4,8 +4,31 @@ using TrackStash.Core.Storage;
 
 namespace TrackStash.Bootstrap;
 
+public sealed record StatusResult(
+    string DatabasePath,
+    bool DatabaseExists,
+    int CurrentVersion,
+    StorageCapabilities Capabilities);
+
 public sealed class BootstrapCommands
 {
+    public async Task<StatusResult> StatusAsync(string databasePath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+
+        var provider = new SqliteStorageProvider(databasePath);
+        var exists = File.Exists(databasePath);
+        var version = exists
+            ? await provider.Migrations.GetCurrentVersionAsync(cancellationToken).ConfigureAwait(false)
+            : 0;
+
+        return new StatusResult(
+            DatabasePath: databasePath,
+            DatabaseExists: exists,
+            CurrentVersion: version,
+            Capabilities: provider.Capabilities);
+    }
+
     public async Task<InitDbResult> InitDbAsync(string databasePath, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
