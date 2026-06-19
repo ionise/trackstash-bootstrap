@@ -13,7 +13,7 @@ This module is intentionally **not** the owner of domain models, repository cont
 
 Status: MVP implementation complete.
 
-Commands available: `status`, `init-db`, `seed-label`.  
+Commands available: `status`, `init-db`, `seed-label`, `seed-artist`, `seed-release`, `seed-recording`.  
 Config file support (YAML), JSON output mode, and environment variable overrides are implemented.
 
 ## Why This Module Exists
@@ -124,6 +124,30 @@ dotnet run --project src/TrackStash.Bootstrap -- seed-label --config ./trackstas
 # action: ReusedByNormalizedName
 ```
 
+### 5. Seed a release
+
+```bash
+dotnet run --project src/TrackStash.Bootstrap -- seed-release --config ./trackstash-bootstrap.yml --title "Virelith Sessions" --label-id <label-id>
+```
+
+You can also attach a release credit once the artist exists:
+
+```bash
+dotnet run --project src/TrackStash.Bootstrap -- seed-release --config ./trackstash-bootstrap.yml --title "Virelith Sessions" --label-id <label-id> --artist-id <artist-id>
+```
+
+### 6. Seed a recording
+
+```bash
+dotnet run --project src/TrackStash.Bootstrap -- seed-recording --config ./trackstash-bootstrap.yml --title "Signal Drift" --release-id <release-id> --track-number 1
+```
+
+To seed a relationship, point at a recording that already exists:
+
+```bash
+dotnet run --project src/TrackStash.Bootstrap -- seed-recording --config ./trackstash-bootstrap.yml --title "Signal Drift (Remix)" --related-recording-id <recording-id> --relationship-type remix_of
+```
+
 ### Config file vs CLI flags
 
 All options can be passed as CLI flags instead of using a config file:
@@ -153,6 +177,9 @@ dotnet run --project src/TrackStash.Bootstrap -- status --config ./trackstash-bo
 trackstash-bootstrap status     --db-path <path> | --config <path>
 trackstash-bootstrap init-db    --db-path <path> | --config <path>
 trackstash-bootstrap seed-label --db-path <path> | --config <path> --name <name> [--id <id>] [--source <provider> --external-id <id>]
+trackstash-bootstrap seed-artist --db-path <path> | --config <path> --name <name> [--id <id>] [--sort-name <sort>] [--source <provider> --external-id <id>]
+trackstash-bootstrap seed-release --db-path <path> | --config <path> --title <title> [--id <id>] [--label-id <id>] [--artist-id <id>] [--source <provider> --external-id <id>]
+trackstash-bootstrap seed-recording --db-path <path> | --config <path> --title <title> [--id <id>] [--mix-name <mix>] [--isrc <isrc>] [--release-id <id>] [--disc-number <n>] [--track-number <n>] [--artist-id <id>] [--artist-role <role>] [--related-recording-id <id>] [--relationship-type <type>] [--relationship-source <source>] [--relationship-confidence <value>] [--relationship-notes <text>] [--source <provider> --external-id <id>]
 ```
 
 Global options (any command):

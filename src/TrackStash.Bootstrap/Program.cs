@@ -1,4 +1,5 @@
-﻿using TrackStash.Bootstrap;
+﻿using System.Globalization;
+using TrackStash.Bootstrap;
 using TrackStash.Bootstrap.Config;
 using TrackStash.Bootstrap.Output;
 
@@ -26,6 +27,8 @@ static async Task<int> RunAsync(string[] args)
 			"init-db"    => await RunInitDbAsync(bootstrap, config, jsonMode).ConfigureAwait(false),
 			"seed-label" => await RunSeedLabelAsync(bootstrap, config, options, jsonMode).ConfigureAwait(false),
 			"seed-artist" => await RunSeedArtistAsync(bootstrap, config, options, jsonMode).ConfigureAwait(false),
+			"seed-release" => await RunSeedReleaseAsync(bootstrap, config, options, jsonMode).ConfigureAwait(false),
+			"seed-recording" => await RunSeedRecordingAsync(bootstrap, config, options, jsonMode).ConfigureAwait(false),
 			"status"     => await RunStatusAsync(bootstrap, config, jsonMode).ConfigureAwait(false),
 			_            => UnknownCommand(command),
 		};
@@ -209,6 +212,126 @@ static async Task<int> RunSeedArtistAsync(
 	return 0;
 }
 
+static async Task<int> RunSeedReleaseAsync(
+	BootstrapCommands bootstrap,
+	BootstrapConfig config,
+	IReadOnlyDictionary<string, string?> options,
+	bool jsonMode)
+{
+	var dbPath = RequireDbPath(config);
+	var title = GetRequiredOption(options, "title");
+	var releaseId = GetOption(options, "id");
+	var labelId = GetOption(options, "label-id");
+	var artistId = GetOption(options, "artist-id");
+	var source = GetOption(options, "source");
+	var externalId = GetOption(options, "external-id");
+
+	if (!string.IsNullOrWhiteSpace(externalId) && string.IsNullOrWhiteSpace(source))
+		throw new ArgumentException("--source is required when --external-id is provided.");
+
+	var request = new SeedReleaseRequest(
+		DatabasePath: dbPath,
+		Title: title,
+		ReleaseId: releaseId,
+		LabelId: labelId,
+		ArtistId: artistId,
+		Source: source,
+		ExternalId: externalId);
+
+	var result = await bootstrap.SeedReleaseAsync(request).ConfigureAwait(false);
+
+	if (jsonMode)
+	{
+		CommandOutput.WriteJson("seed-release", ok: true, exitCode: 0, data: new
+		{
+			releaseId = result.ReleaseId,
+			action = result.Action.ToString(),
+			normalizedTitle = result.NormalizedTitle,
+		});
+	}
+	else
+	{
+		CommandOutput.WriteText([
+			("releaseId", result.ReleaseId),
+			("action", result.Action),
+			("normalizedTitle", result.NormalizedTitle),
+		]);
+	}
+
+	return 0;
+}
+
+static async Task<int> RunSeedRecordingAsync(
+	BootstrapCommands bootstrap,
+	BootstrapConfig config,
+	IReadOnlyDictionary<string, string?> options,
+	bool jsonMode)
+{
+	var dbPath = RequireDbPath(config);
+	var title = GetRequiredOption(options, "title");
+	var recordingId = GetOption(options, "id");
+	var mixName = GetOption(options, "mix-name");
+	var isrc = GetOption(options, "isrc");
+	var releaseId = GetOption(options, "release-id");
+	var discNumber = ParseNullableIntOption(options, "disc-number");
+	var trackNumber = ParseNullableIntOption(options, "track-number");
+	var artistId = GetOption(options, "artist-id");
+	var artistRole = GetOption(options, "artist-role");
+	var relatedRecordingId = GetOption(options, "related-recording-id");
+	var relationshipType = GetOption(options, "relationship-type");
+	var relationshipSource = GetOption(options, "relationship-source");
+	var relationshipConfidence = ParseNullableDecimalOption(options, "relationship-confidence");
+	var relationshipNotes = GetOption(options, "relationship-notes");
+	var source = GetOption(options, "source");
+	var externalId = GetOption(options, "external-id");
+
+	if (!string.IsNullOrWhiteSpace(externalId) && string.IsNullOrWhiteSpace(source))
+		throw new ArgumentException("--source is required when --external-id is provided.");
+
+	var request = new SeedRecordingRequest(
+		DatabasePath: dbPath,
+		Title: title,
+		RecordingId: recordingId,
+		MixName: mixName,
+		Isrc: isrc,
+		ReleaseId: releaseId,
+		DiscNumber: discNumber,
+		TrackNumber: trackNumber,
+		ArtistId: artistId,
+		ArtistRole: artistRole,
+		RelatedRecordingId: relatedRecordingId,
+		RelationshipType: relationshipType,
+		RelationshipSource: relationshipSource,
+		RelationshipConfidence: relationshipConfidence,
+		RelationshipNotes: relationshipNotes,
+		Source: source,
+		ExternalId: externalId);
+
+	var result = await bootstrap.SeedRecordingAsync(request).ConfigureAwait(false);
+
+	if (jsonMode)
+	{
+		CommandOutput.WriteJson("seed-recording", ok: true, exitCode: 0, data: new
+		{
+			recordingId = result.RecordingId,
+			action = result.Action.ToString(),
+			normalizedTitle = result.NormalizedTitle,
+			normalizedMixName = result.NormalizedMixName,
+		});
+	}
+	else
+	{
+		CommandOutput.WriteText([
+			("recordingId", result.RecordingId),
+			("action", result.Action),
+			("normalizedTitle", result.NormalizedTitle),
+			("normalizedMixName", result.NormalizedMixName),
+		]);
+	}
+
+	return 0;
+}
+
 static int UnknownCommand(string command)
 {
 	Console.Error.WriteLine($"Unknown command: {command}");
@@ -259,6 +382,30 @@ static string GetRequiredOption(IReadOnlyDictionary<string, string?> options, st
 static string? GetOption(IReadOnlyDictionary<string, string?> options, string key)
 	=> options.TryGetValue(key, out var value) ? value : null;
 
+static int? ParseNullableIntOption(IReadOnlyDictionary<string, string?> options, string key)
+{
+	var value = GetOption(options, key);
+	if (string.IsNullOrWhiteSpace(value))
+		return null;
+
+	if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+		throw new ArgumentException($"--{key} must be an integer.");
+
+	return parsed;
+}
+
+static decimal? ParseNullableDecimalOption(IReadOnlyDictionary<string, string?> options, string key)
+{
+	var value = GetOption(options, key);
+	if (string.IsNullOrWhiteSpace(value))
+		return null;
+
+	if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed))
+		throw new ArgumentException($"--{key} must be a decimal number.");
+
+	return parsed;
+}
+
 static void PrintUsage()
 {
 	Console.WriteLine("Usage:");
@@ -266,6 +413,8 @@ static void PrintUsage()
 	Console.WriteLine("  trackstash-bootstrap init-db    --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap seed-label --db-path <path> --name <name> [--id <id>] [--source <source> --external-id <id>] [--output json]");
 	Console.WriteLine("  trackstash-bootstrap seed-artist --db-path <path> --name <name> [--id <id>] [--sort-name <sort>] [--source <source> --external-id <id>] [--output json]");
+	Console.WriteLine("  trackstash-bootstrap seed-release --db-path <path> --title <title> [--id <id>] [--label-id <id>] [--artist-id <id>] [--source <source> --external-id <id>] [--output json]");
+	Console.WriteLine("  trackstash-bootstrap seed-recording --db-path <path> --title <title> [--id <id>] [--mix-name <mix>] [--isrc <isrc>] [--release-id <id>] [--disc-number <n>] [--track-number <n>] [--artist-id <id>] [--artist-role <role>] [--related-recording-id <id>] [--relationship-type <type>] [--relationship-source <source>] [--relationship-confidence <value>] [--relationship-notes <text>] [--source <source> --external-id <id>] [--output json]");
 	Console.WriteLine();
 	Console.WriteLine("Options resolved from (highest to lowest priority):");
 	Console.WriteLine("  CLI flags > env vars > config file (--config <path>) > defaults");
