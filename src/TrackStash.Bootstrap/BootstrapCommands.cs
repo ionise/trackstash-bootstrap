@@ -619,7 +619,7 @@ public sealed class BootstrapCommands
         var provider = new SqliteStorageProvider(request.DatabasePath);
         var service  = new CatalogImportService(provider);
         var core     = await service.ImportAsync(
-            new CatalogImportRequest(CsvPath: request.CsvPath, DryRun: request.DryRun),
+            new CatalogImportRequest(CsvPath: request.CsvPath, DryRun: request.DryRun, FailFast: request.FailFast),
             cancellationToken).ConfigureAwait(false);
 
         return new ImportCsvResult(
@@ -629,8 +629,10 @@ public sealed class BootstrapCommands
             SucceededRows: core.SucceededRows,
             FailedRows: core.FailedRows,
             DryRun: core.DryRun,
+            FailFast: core.FailFast,
+            WarningCount: core.WarningCount,
             RowResults: core.RowResults
-                .Select(r => new ImportCsvRowResult(r.RowNumber, r.EntityType, r.EntityId, r.Action, r.Success, r.Error))
+                .Select(r => new ImportCsvRowResult(r.RowNumber, r.EntityType, r.EntityId, r.Action, r.Success, r.Error, r.Warnings))
                 .ToList());
     }
 }
@@ -640,7 +642,8 @@ public sealed record InitDbResult(string DatabasePath, int CurrentVersion, int A
 public sealed record ImportCsvRequest(
     string DatabasePath,
     string CsvPath,
-    bool DryRun = false);
+    bool DryRun = false,
+    bool FailFast = false);
 
 public sealed record ImportCsvResult(
     string DatabasePath,
@@ -649,6 +652,8 @@ public sealed record ImportCsvResult(
     int SucceededRows,
     int FailedRows,
     bool DryRun,
+    bool FailFast,
+    int WarningCount,
     IReadOnlyList<ImportCsvRowResult> RowResults);
 
 public sealed record ImportCsvRowResult(
@@ -657,7 +662,8 @@ public sealed record ImportCsvRowResult(
     string? EntityId,
     string? Action,
     bool Success,
-    string? Error);
+    string? Error,
+    IReadOnlyList<string> Warnings);
 
 public sealed record SeedLabelRequest(
     string DatabasePath,

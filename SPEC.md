@@ -380,6 +380,12 @@ Promotion criteria to General Availability:
 - error reporting supports triage and retry workflows
 - performance and operational behavior meet expected dataset sizes
 
+Implementation note:
+
+- the CSV import logic lives in `TrackStash.Core.Services.CatalogImportService`
+- `trackstash-bootstrap` exposes it as a setup-time wrapper only
+- future lifecycle tooling such as `trackstash-catalog` should call the same core service directly
+
 ## 10. Logging and Observability
 
 Minimum requirements:
@@ -414,6 +420,32 @@ Bootstrap-specific behavior:
 - bootstrap should not define its own normalization algorithm
 - bootstrap should use duplicate-avoidance lookup order before creating canonical rows: external reference lookup first, normalized-field lookup second, and create a new canonical identity only when no deterministic match exists
 - when normalized lookup returns ambiguous candidates, bootstrap should fail with a review-required result rather than auto-merging
+
+## 10.3 CSV Import Contract
+
+Current CSV columns:
+
+- `type` — required discriminator: `label`, `artist`, `release`, `recording`
+- `id` — optional canonical ID override
+- `name` — required for `label` and `artist`
+- `title` — required for `release` and `recording`
+- `sort_name` — optional for `artist`
+- `mix_name` — optional for `recording`
+- `isrc` — optional for `recording`
+- `label_ref` — optional release-to-label reference
+- `artist_ref` — optional release/recording-to-artist reference
+- `artist_role` — optional recording artist role, defaults to `primary`
+- `release_ref` — optional recording-to-release reference
+- `disc_number` and `track_number` — optional release placement values
+- `source` and `external_id` — optional external reference pair
+
+Import rules:
+
+- rows may appear in any order in the CSV
+- processing order is deterministic: labels, artists, releases, then recordings
+- references are resolved first against entities imported earlier in the same run, then against entities already present in the database
+- unresolved references produce row warnings instead of row failure by default
+- `fail-fast` mode stops processing after the first failed row
 
 ## 11. Testing Matrix
 

@@ -64,8 +64,9 @@ static async Task<int> RunImportCsvAsync(
 	var dbPath  = RequireDbPath(config);
 	var csvPath = GetRequiredOption(options, "file");
 	var dryRun  = options.ContainsKey("dry-run");
+	var failFast = options.ContainsKey("fail-fast");
 
-	var request = new ImportCsvRequest(DatabasePath: dbPath, CsvPath: csvPath, DryRun: dryRun);
+	var request = new ImportCsvRequest(DatabasePath: dbPath, CsvPath: csvPath, DryRun: dryRun, FailFast: failFast);
 	var result  = await bootstrap.ImportCsvAsync(request).ConfigureAwait(false);
 
 	if (jsonMode)
@@ -78,6 +79,8 @@ static async Task<int> RunImportCsvAsync(
 			succeededRows = result.SucceededRows,
 			failedRows = result.FailedRows,
 			dryRun = result.DryRun,
+			failFast = result.FailFast,
+			warningCount = result.WarningCount,
 			rowResults = result.RowResults.Select(r => new
 			{
 				rowNumber = r.RowNumber,
@@ -86,6 +89,7 @@ static async Task<int> RunImportCsvAsync(
 				action = r.Action,
 				success = r.Success,
 				error = r.Error,
+				warnings = r.Warnings,
 			}),
 		});
 	}
@@ -98,7 +102,11 @@ static async Task<int> RunImportCsvAsync(
 			("succeededRows", result.SucceededRows),
 			("failedRows", result.FailedRows),
 			("dryRun", result.DryRun),
+			("failFast", result.FailFast),
+			("warningCount", result.WarningCount),
 		]);
+		foreach (var row in result.RowResults.Where(r => r.Warnings.Count > 0))
+			Console.Error.WriteLine($"  Row {row.RowNumber} ({row.EntityType}) warnings: {string.Join("; ", row.Warnings)}");
 		foreach (var row in result.RowResults.Where(r => !r.Success))
 			Console.Error.WriteLine($"  Row {row.RowNumber} ({row.EntityType}): {row.Error}");
 	}
@@ -508,7 +516,7 @@ static void PrintUsage()
 	Console.WriteLine("  trackstash-bootstrap status     --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap init-db    --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap migrate    --db-path <path> [--output json]");
-	Console.WriteLine("  trackstash-bootstrap import-csv --db-path <path> --file <path.csv> [--dry-run] [--output json];");
+	Console.WriteLine("  trackstash-bootstrap import-csv --db-path <path> --file <path.csv> [--dry-run] [--fail-fast] [--output json]");
 	Console.WriteLine("  trackstash-bootstrap doctor     --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap repair-indexes --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap seed-label --db-path <path> --name <name> [--id <id>] [--source <source> --external-id <id>] [--output json]");

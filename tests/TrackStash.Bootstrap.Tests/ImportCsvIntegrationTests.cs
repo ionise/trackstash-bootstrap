@@ -26,7 +26,9 @@ public sealed class ImportCsvIntegrationTests
             Assert.Equal(4, result.TotalRows);
             Assert.Equal(4, result.SucceededRows);
             Assert.Equal(0, result.FailedRows);
+            Assert.Equal(0, result.WarningCount);
             Assert.All(result.RowResults, r => Assert.True(r.Success));
+            Assert.All(result.RowResults, r => Assert.Empty(r.Warnings));
 
             await using var conn = new SqliteConnection($"Data Source={dbPath}");
             await conn.OpenAsync();
@@ -91,6 +93,7 @@ public sealed class ImportCsvIntegrationTests
             Assert.Equal(2, result.TotalRows);
             Assert.Equal(2, result.SucceededRows);
             Assert.True(result.DryRun);
+            Assert.False(result.FailFast);
             Assert.All(result.RowResults, r => Assert.Equal("DryRun", r.Action));
 
             await using var conn = new SqliteConnection($"Data Source={dbPath}");
@@ -124,6 +127,66 @@ public sealed class ImportCsvIntegrationTests
 
             var failures = result.RowResults.Where(r => !r.Success).ToList();
             Assert.All(failures, r => Assert.Contains("Missing required field", r.Error!));
+        }
+        finally { Cleanup(dbPath, csvPath); }
+    }
+
+    [Fact]
+    public async Task ImportCsvAsync_ReportsWarnings_ForUnresolvedLinks()
+    {
+        var dbPath = TempDb();
+        var csvPath = TempCsv("""
+            type,title,label_ref,artist_ref
+            release,Warning Release,Missing Label,Missing Artist
+            """);
+        var commands = new BootstrapCommands();
+
+        try
+        {
+            await commands.InitDbAsync(dbPath);
+            var result = await commands.ImportCsvAsync(new ImportCsvRequest(DatabasePath: dbPath, CsvPath: csvPath));
+
+            Assert.Equal(1, result.TotalRows);
+            Assert.Equal(1, result.SucceededRows);
+            Assert.Equal(0, result.FailedRows);
+            Assert.Equal(2, result.WarningCount);
+
+            var row = Assert.Single(result.RowResults);
+            Assert.True(row.Success);
+            Assert.Equal(2, row.Warnings.Count);
+            Assert.Contains("Unresolved label reference", row.Warnings[0]);
+            Assert.Contains("Unresolved artist reference", row.Warnings[1]);
+        }
+        finally { Cleanup(dbPath, csvPath); }
+    }
+
+    [Fact]
+    public async Task ImportCsvAsync_FailFast_StopsAfterFirstFailure()
+    {
+        var dbPath = TempDb();
+        var csvPath = TempCsv("""
+            type,name,title
+            label,,
+            artist,Artist That Should Not Run,
+            """);
+        var commands = new BootstrapCommands();
+
+        try
+        {
+            await commands.InitDbAsync(dbPath);
+            var result = await commands.ImportCsvAsync(new ImportCsvRequest(DatabasePath: dbPath, CsvPath: csvPath, FailFast: true));
+
+            Assert.Equal(2, result.TotalRows);
+            Assert.Equal(0, result.SucceededRows);
+            Assert.Equal(1, result.FailedRows);
+            Assert.True(result.FailFast);
+            Assert.Single(result.RowResults);
+            Assert.False(result.RowResults[0].Success);
+
+            await using var conn = new SqliteConnection($"Data Source={dbPath}");
+            await conn.OpenAsync();
+            Assert.Equal(0, await CountAsync(conn, "SELECT COUNT(*) FROM label"));
+            Assert.Equal(0, await CountAsync(conn, "SELECT COUNT(*) FROM artist"));
         }
         finally { Cleanup(dbPath, csvPath); }
     }

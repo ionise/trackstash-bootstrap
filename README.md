@@ -13,7 +13,7 @@ This module is intentionally **not** the owner of domain models, repository cont
 
 Status: MVP implementation complete.
 
-Commands available: `status`, `init-db`, `migrate`, `seed-label`, `seed-artist`, `seed-release`, `seed-recording`.  
+Commands available: `status`, `init-db`, `migrate`, `import-csv`, `seed-label`, `seed-artist`, `seed-release`, `seed-recording`.  
 Config file support (YAML), JSON output mode, and environment variable overrides are implemented.
 
 ## Why This Module Exists
@@ -177,12 +177,52 @@ Add `--output json` to any command for machine-readable output:
 dotnet run --project src/TrackStash.Bootstrap -- status --config ./trackstash-bootstrap.yml --output json
 ```
 
+### Import CSV
+
+`import-csv` is implemented as a thin bootstrap wrapper over `TrackStash.Core.Services.CatalogImportService`.
+That keeps the import logic reusable for future lifecycle tooling such as `trackstash-catalog`.
+
+Current CSV schema:
+
+- `type` — required, one of `label`, `artist`, `release`, `recording`
+- `id` — optional stable ID to use for the canonical row
+- `name` — required for `label` and `artist`
+- `title` — required for `release` and `recording`
+- `sort_name` — optional for `artist`
+- `mix_name` — optional for `recording`
+- `isrc` — optional for `recording`
+- `label_ref` — optional reference used by `release`
+- `artist_ref` — optional reference used by `release` and `recording`
+- `artist_role` — optional for `recording`, defaults to `primary`
+- `release_ref` — optional reference used by `recording`
+- `disc_number` and `track_number` — optional for `recording`
+- `source` and `external_id` — optional external reference pair
+
+Reference resolution order:
+
+1. entities imported earlier in the same run
+2. existing rows already present in the database
+3. unresolved reference warning when no match is found
+
+Unresolved links do not currently fail the row by default. Use `--fail-fast` if you want the import to stop on the first failed row.
+
+Example:
+
+```csv
+type,name,title,label_ref,artist_ref,release_ref,mix_name,isrc
+label,Virelith Records,,,,,,
+artist,Bozra Bozra,,,,,,
+release,,Virelith Sessions,Virelith Records,Bozra Bozra,,,
+recording,,Signal Drift,,Bozra Bozra,Virelith Sessions,Original Mix,TST000000001
+```
+
 ## Command Reference
 
 ```text
 trackstash-bootstrap status     --db-path <path> | --config <path>
 trackstash-bootstrap init-db    --db-path <path> | --config <path>
 trackstash-bootstrap migrate    --db-path <path> | --config <path>
+trackstash-bootstrap import-csv --db-path <path> | --config <path> --file <path.csv> [--dry-run] [--fail-fast]
 trackstash-bootstrap seed-label --db-path <path> | --config <path> --name <name> [--id <id>] [--source <provider> --external-id <id>]
 trackstash-bootstrap seed-artist --db-path <path> | --config <path> --name <name> [--id <id>] [--sort-name <sort>] [--source <provider> --external-id <id>]
 trackstash-bootstrap seed-release --db-path <path> | --config <path> --title <title> [--id <id>] [--label-id <id>] [--artist-id <id>] [--source <provider> --external-id <id>]
@@ -202,6 +242,7 @@ Implemented:
 - `trackstash-bootstrap status`
 - `trackstash-bootstrap init-db`
 - `trackstash-bootstrap migrate`
+- `trackstash-bootstrap import-csv`
 - `trackstash-bootstrap seed-label`
 - `trackstash-bootstrap seed-artist`
 - `trackstash-bootstrap seed-release`
@@ -209,7 +250,6 @@ Implemented:
 
 Planned next:
 
-- `trackstash-bootstrap import-csv`
 - `trackstash-bootstrap doctor`
 - `trackstash-bootstrap repair-indexes`
 
@@ -268,6 +308,7 @@ Environment variable equivalents:
 Current test coverage:
 
 - integration test: `seed-label` deduplicates punctuation variants against a temp SQLite database
+- integration tests: `import-csv` covers dependency-order imports, dry-run mode, unresolved-link warnings, fail-fast mode, and idempotency
 
 Planned additions:
 
@@ -283,4 +324,5 @@ Planned additions:
 4. ✅ JSON output mode.
 5. ✅ Add `seed-artist` (Phase 2 seeding).
 6. ✅ Add `seed-release` and `seed-recording`.
-7. Add `import-csv` for bulk ingestion.
+7. ✅ Add `import-csv` for bulk ingestion.
+8. Add `doctor` and `repair-indexes`.
