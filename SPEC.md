@@ -477,6 +477,8 @@ Import rules:
 - normalization utility location and algorithm
 - whether `seed-label` should accept payload files in MVP
 - `migrate` is a standalone command in MVP
+- whether bootstrap should own multi-catalog provisioning commands (`catalog-create`, `catalog-list`, `catalog-set-default`)
+- whether bootstrap should persist and manage a catalog registry mapping logical catalog names to provider/connection descriptors
 
 ## 13. Implementation Checklist
 
