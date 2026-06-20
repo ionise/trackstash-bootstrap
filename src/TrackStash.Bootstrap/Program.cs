@@ -26,7 +26,7 @@ static async Task<int> RunAsync(string[] args)
 		{
 			"init-db"    => await RunInitDbAsync(bootstrap, config, jsonMode).ConfigureAwait(false),
 			"migrate" => await RunMigrateAsync(bootstrap, config, jsonMode).ConfigureAwait(false),
-			"import-csv" => await RunNotImplementedAsync("import-csv", jsonMode).ConfigureAwait(false),
+			"import-csv" => await RunImportCsvAsync(bootstrap, config, options, jsonMode).ConfigureAwait(false),
 			"doctor" => await RunNotImplementedAsync("doctor", jsonMode).ConfigureAwait(false),
 			"repair-indexes" => await RunNotImplementedAsync("repair-indexes", jsonMode).ConfigureAwait(false),
 			"seed-label" => await RunSeedLabelAsync(bootstrap, config, options, jsonMode).ConfigureAwait(false),
@@ -53,6 +53,57 @@ static async Task<int> RunAsync(string[] args)
 			Console.Error.WriteLine($"Unexpected error: {ex.Message}");
 		return 1;
 	}
+}
+
+static async Task<int> RunImportCsvAsync(
+	BootstrapCommands bootstrap,
+	BootstrapConfig config,
+	IReadOnlyDictionary<string, string?> options,
+	bool jsonMode)
+{
+	var dbPath  = RequireDbPath(config);
+	var csvPath = GetRequiredOption(options, "file");
+	var dryRun  = options.ContainsKey("dry-run");
+
+	var request = new ImportCsvRequest(DatabasePath: dbPath, CsvPath: csvPath, DryRun: dryRun);
+	var result  = await bootstrap.ImportCsvAsync(request).ConfigureAwait(false);
+
+	if (jsonMode)
+	{
+		CommandOutput.WriteJson("import-csv", ok: result.FailedRows == 0, exitCode: result.FailedRows > 0 ? 1 : 0, data: new
+		{
+			databasePath = result.DatabasePath,
+			csvPath = result.CsvPath,
+			totalRows = result.TotalRows,
+			succeededRows = result.SucceededRows,
+			failedRows = result.FailedRows,
+			dryRun = result.DryRun,
+			rowResults = result.RowResults.Select(r => new
+			{
+				rowNumber = r.RowNumber,
+				entityType = r.EntityType,
+				entityId = r.EntityId,
+				action = r.Action,
+				success = r.Success,
+				error = r.Error,
+			}),
+		});
+	}
+	else
+	{
+		CommandOutput.WriteText([
+			("database", result.DatabasePath),
+			("csv", result.CsvPath),
+			("totalRows", result.TotalRows),
+			("succeededRows", result.SucceededRows),
+			("failedRows", result.FailedRows),
+			("dryRun", result.DryRun),
+		]);
+		foreach (var row in result.RowResults.Where(r => !r.Success))
+			Console.Error.WriteLine($"  Row {row.RowNumber} ({row.EntityType}): {row.Error}");
+	}
+
+	return result.FailedRows > 0 ? 1 : 0;
 }
 
 static Task<int> RunNotImplementedAsync(string command, bool jsonMode)
@@ -457,7 +508,7 @@ static void PrintUsage()
 	Console.WriteLine("  trackstash-bootstrap status     --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap init-db    --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap migrate    --db-path <path> [--output json]");
-	Console.WriteLine("  trackstash-bootstrap import-csv --db-path <path> [--output json]");
+	Console.WriteLine("  trackstash-bootstrap import-csv --db-path <path> --file <path.csv> [--dry-run] [--output json];");
 	Console.WriteLine("  trackstash-bootstrap doctor     --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap repair-indexes --db-path <path> [--output json]");
 	Console.WriteLine("  trackstash-bootstrap seed-label --db-path <path> --name <name> [--id <id>] [--source <source> --external-id <id>] [--output json]");

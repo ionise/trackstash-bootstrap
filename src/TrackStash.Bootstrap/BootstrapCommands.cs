@@ -1,4 +1,5 @@
 using TrackStash.Core.Normalization;
+using TrackStash.Core.Services;
 using TrackStash.Core.Sqlite;
 using TrackStash.Core.Storage;
 
@@ -606,9 +607,57 @@ public sealed class BootstrapCommands
             },
         ];
     }
+
+    // ── import-csv ────────────────────────────────────────────────────────────
+
+    public async Task<ImportCsvResult> ImportCsvAsync(ImportCsvRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.DatabasePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.CsvPath);
+
+        var provider = new SqliteStorageProvider(request.DatabasePath);
+        var service  = new CatalogImportService(provider);
+        var core     = await service.ImportAsync(
+            new CatalogImportRequest(CsvPath: request.CsvPath, DryRun: request.DryRun),
+            cancellationToken).ConfigureAwait(false);
+
+        return new ImportCsvResult(
+            DatabasePath: request.DatabasePath,
+            CsvPath: core.CsvPath,
+            TotalRows: core.TotalRows,
+            SucceededRows: core.SucceededRows,
+            FailedRows: core.FailedRows,
+            DryRun: core.DryRun,
+            RowResults: core.RowResults
+                .Select(r => new ImportCsvRowResult(r.RowNumber, r.EntityType, r.EntityId, r.Action, r.Success, r.Error))
+                .ToList());
+    }
 }
 
 public sealed record InitDbResult(string DatabasePath, int CurrentVersion, int AppliedMigrationsCount);
+
+public sealed record ImportCsvRequest(
+    string DatabasePath,
+    string CsvPath,
+    bool DryRun = false);
+
+public sealed record ImportCsvResult(
+    string DatabasePath,
+    string CsvPath,
+    int TotalRows,
+    int SucceededRows,
+    int FailedRows,
+    bool DryRun,
+    IReadOnlyList<ImportCsvRowResult> RowResults);
+
+public sealed record ImportCsvRowResult(
+    int RowNumber,
+    string EntityType,
+    string? EntityId,
+    string? Action,
+    bool Success,
+    string? Error);
 
 public sealed record SeedLabelRequest(
     string DatabasePath,
