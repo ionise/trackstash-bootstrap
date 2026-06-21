@@ -32,7 +32,7 @@ public sealed class ImportCsvIntegrationTests
 
             await using var conn = new SqliteConnection($"Data Source={dbPath}");
             await conn.OpenAsync();
-            Assert.Equal(1, await CountAsync(conn, "SELECT COUNT(*) FROM label"));
+            Assert.Equal(2, await CountAsync(conn, "SELECT COUNT(*) FROM label"));
             Assert.Equal(1, await CountAsync(conn, "SELECT COUNT(*) FROM artist"));
             Assert.Equal(1, await CountAsync(conn, "SELECT COUNT(*) FROM release"));
             Assert.Equal(1, await CountAsync(conn, "SELECT COUNT(*) FROM recording"));
@@ -67,7 +67,7 @@ public sealed class ImportCsvIntegrationTests
 
             await using var conn = new SqliteConnection($"Data Source={dbPath}");
             await conn.OpenAsync();
-            Assert.Equal(1, await CountAsync(conn, "SELECT COUNT(*) FROM label"));
+            Assert.Equal(2, await CountAsync(conn, "SELECT COUNT(*) FROM label"));
             Assert.Equal(1, await CountAsync(conn, "SELECT COUNT(*) FROM artist"));
             Assert.Equal(1, await CountAsync(conn, "SELECT COUNT(*) FROM release"));
         }
@@ -98,7 +98,7 @@ public sealed class ImportCsvIntegrationTests
 
             await using var conn = new SqliteConnection($"Data Source={dbPath}");
             await conn.OpenAsync();
-            Assert.Equal(0, await CountAsync(conn, "SELECT COUNT(*) FROM label"));
+            Assert.Equal(1, await CountAsync(conn, "SELECT COUNT(*) FROM label"));
             Assert.Equal(0, await CountAsync(conn, "SELECT COUNT(*) FROM artist"));
         }
         finally { Cleanup(dbPath, csvPath); }
@@ -185,7 +185,7 @@ public sealed class ImportCsvIntegrationTests
 
             await using var conn = new SqliteConnection($"Data Source={dbPath}");
             await conn.OpenAsync();
-            Assert.Equal(0, await CountAsync(conn, "SELECT COUNT(*) FROM label"));
+            Assert.Equal(1, await CountAsync(conn, "SELECT COUNT(*) FROM label"));
             Assert.Equal(0, await CountAsync(conn, "SELECT COUNT(*) FROM artist"));
         }
         finally { Cleanup(dbPath, csvPath); }

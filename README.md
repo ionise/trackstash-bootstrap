@@ -94,6 +94,7 @@ dotnet run --project src/TrackStash.Bootstrap -- init-db --config ./trackstash-b
 ```
 
 This creates the database file if it does not exist and applies all pending schema migrations.
+It also ensures a canonical placeholder label named `Not on Label` exists for self-released material.
 
 If you only want to apply pending migrations to an existing database, use:
 

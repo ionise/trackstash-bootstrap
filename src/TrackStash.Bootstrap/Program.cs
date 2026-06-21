@@ -178,6 +178,12 @@ static async Task<int> RunInitDbAsync(BootstrapCommands bootstrap, BootstrapConf
 			databasePath = result.DatabasePath,
 			currentVersion = result.CurrentVersion,
 			appliedMigrations = result.AppliedMigrationsCount,
+			placeholderLabel = new
+			{
+				name = "Not on Label",
+				labelId = result.PlaceholderLabelId,
+				action = result.PlaceholderLabelAction.ToString(),
+			},
 		});
 	}
 	else
@@ -187,6 +193,9 @@ static async Task<int> RunInitDbAsync(BootstrapCommands bootstrap, BootstrapConf
 			("database", result.DatabasePath),
 			("currentVersion", result.CurrentVersion),
 			("appliedMigrations", result.AppliedMigrationsCount),
+			("placeholderLabel", "Not on Label"),
+			("placeholderLabelId", result.PlaceholderLabelId),
+			("placeholderLabelAction", result.PlaceholderLabelAction),
 			("status", "ready"),
 		]);
 	}

@@ -29,7 +29,7 @@ public sealed class LabelSeedIntegrationTests
             await using var connection = new SqliteConnection($"Data Source={dbPath}");
             await connection.OpenAsync();
 
-            Assert.Equal(1, await CountAsync(connection, "SELECT COUNT(*) FROM label"));
+            Assert.Equal(2, await CountAsync(connection, "SELECT COUNT(*) FROM label"));
             Assert.Equal(1, await CountAsync(connection, "SELECT COUNT(*) FROM label_alias"));
         }
         finally

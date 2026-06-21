@@ -79,6 +79,10 @@ public enum SeedArtistAction
 
 public sealed class BootstrapCommands
 {
+    private const string PlaceholderLabelName = "Not on Label";
+    private const string PlaceholderLabelExternalSource = "trackstash";
+    private const string PlaceholderLabelExternalId = "not-on-label";
+
     public async Task<StatusResult> StatusAsync(string databasePath, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
@@ -102,11 +106,18 @@ public sealed class BootstrapCommands
 
         var provider = new SqliteStorageProvider(databasePath);
         var migrationResult = await provider.Migrations.ApplyPendingMigrationsAsync(cancellationToken).ConfigureAwait(false);
+        var placeholderLabelResult = await SeedLabelAsync(new SeedLabelRequest(
+            DatabasePath: databasePath,
+            Name: PlaceholderLabelName,
+            Source: PlaceholderLabelExternalSource,
+            ExternalId: PlaceholderLabelExternalId), cancellationToken).ConfigureAwait(false);
 
         return new InitDbResult(
             DatabasePath: databasePath,
             CurrentVersion: migrationResult.CurrentVersion,
-            AppliedMigrationsCount: migrationResult.AppliedMigrations.Count);
+            AppliedMigrationsCount: migrationResult.AppliedMigrations.Count,
+            PlaceholderLabelId: placeholderLabelResult.LabelId,
+            PlaceholderLabelAction: placeholderLabelResult.Action);
     }
 
     public async Task<MigrationResult> MigrateAsync(string databasePath, CancellationToken cancellationToken = default)
@@ -637,7 +648,12 @@ public sealed class BootstrapCommands
     }
 }
 
-public sealed record InitDbResult(string DatabasePath, int CurrentVersion, int AppliedMigrationsCount);
+public sealed record InitDbResult(
+    string DatabasePath,
+    int CurrentVersion,
+    int AppliedMigrationsCount,
+    string PlaceholderLabelId,
+    SeedLabelAction PlaceholderLabelAction);
 
 public sealed record ImportCsvRequest(
     string DatabasePath,
